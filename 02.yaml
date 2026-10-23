@@ -1,5 +1,7 @@
 template-file-path: bucket.yaml
 parameters:
-  Proyecto: "globomatics"
+  Proyecto: "asistenciaweb"
   Ambiente: "dev"
   TipoInstancia: "t3.micro"
+  MyIpCidr: "166.114.174.35/32"
+  KeyName: "rsa-ssh-modulo2"
