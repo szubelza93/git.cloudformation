@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infraestructura completa de AsistenciaWeb basada en el ejemplo exitoso
+Description: Bucket S3 y una instancia EC2 de Globomatics con rsa-ssh-modulo2
 
 Parameters:
   Proyecto:
     Type: String
-    Default: asistenciaweb
+    Default: globomatics
 
   Ambiente:
     Type: String
@@ -16,171 +16,48 @@ Parameters:
     Default: t3.micro
     AllowedValues: [t3.micro, t3.small]
 
-  MyIpCidr:
-    Type: String
-    Default: "166.114.174.35/32"
-
-  KeyName:
-    Type: String
-    Default: "rsa-ssh-modulo2"
-
   ImagenLinux:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 
 Resources:
-  # 1. RED (VPC, SUBNET, IGW Y ROUTE TABLE)
-  VPC:
-    Type: AWS::EC2::VPC
+  Bucket:
+    Type: AWS::S3::Bucket
     Properties:
-      CidrBlock: "10.0.0.0/16"
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
+      BucketName: !Sub "${Proyecto}-${Ambiente}-${AWS::AccountId}"
       Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-vpc"
+        - Key: Proyecto
+          Value: !Ref Proyecto
+        - Key: Ambiente
+          Value: !Ref Ambiente
 
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-igw"
-
-  VPCGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VPC
-      InternetGatewayId: !Ref InternetGateway
-
-  PublicSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      CidrBlock: "10.0.1.0/24"
-      AvailabilityZone: !Sub "${AWS::Region}a"
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-subnet-publica"
-
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-route-table"
-
-  DefaultPublicRoute:
-    Type: AWS::EC2::Route
-    DependsOn: VPCGatewayAttachment
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: "0.0.0.0/0"
-      GatewayId: !Ref InternetGateway
-
-  PublicSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet
-      RouteTableId: !Ref PublicRouteTable
-
-  # 2. SEGURIDAD (SECURITY GROUPS)
-  FrontendSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "Acceso SSH, HTTP y HTTPS al frontend"
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref MyIpCidr
-          Description: "SSH desde IP autorizada"
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: "0.0.0.0/0"
-          Description: "HTTP publico"
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: "0.0.0.0/0"
-          Description: "HTTPS publico"
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-frontend-sg"
-
-  BackendSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "Acceso SSH y comunicacion desde el frontend"
-      VpcId: !Ref VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref MyIpCidr
-          Description: "SSH desde IP autorizada"
-        - IpProtocol: tcp
-          FromPort: 3000
-          ToPort: 3000
-          SourceSecurityGroupId: !Ref FrontendSecurityGroup
-          Description: "Comunicacion desde frontend"
-        - IpProtocol: tcp
-          FromPort: 3000
-          ToPort: 3000
-          CidrIp: "0.0.0.0/0"
-          Description: "Acceso publico al backend"
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-backend-sg"
-
-  # 3. INSTANCIAS EC2 (FRONTEND Y BACKEND)
-  FrontendInstance:
+  Instancia:
     Type: AWS::EC2::Instance
-    DependsOn: DefaultPublicRoute
     Properties:
       ImageId: !Ref ImagenLinux
       InstanceType: !Ref TipoInstancia
-      SubnetId: !Ref PublicSubnet
-      SecurityGroupIds: 
-        - !Ref FrontendSecurityGroup
-      AssociatePublicIpAddress: true
-      KeyName: !Ref KeyName
+      KeyName: "rsa-ssh-modulo2"
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-frontend"
-
-  BackendInstance:
-    Type: AWS::EC2::Instance
-    DependsOn: DefaultPublicRoute
-    Properties:
-      ImageId: !Ref ImagenLinux
-      InstanceType: !Ref TipoInstancia
-      SubnetId: !Ref PublicSubnet
-      SecurityGroupIds: 
-        - !Ref BackendSecurityGroup
-      AssociatePublicIpAddress: true
-      KeyName: !Ref KeyName
-      Tags:
-        - Key: Name
-          Value: !Sub "${Proyecto}-backend"
+          Value: !Sub "vm-${Proyecto}-${Ambiente}"
+        - Key: Proyecto
+          Value: !Ref Proyecto
+        - Key: Ambiente
+          Value: !Ref Ambiente
 
 Outputs:
-  FrontendPublicIp:
-    Description: "IP publica del frontend"
-    Value: !GetAtt FrontendInstance.PublicIp
+  NombreBucket:
+    Description: Nombre del bucket creado
+    Value: !Ref Bucket
 
-  FrontendUrl:
-    Description: "Direccion HTTP del frontend"
-    Value: !Sub "http://${FrontendInstance.PublicIp}"
+  ArnBucket:
+    Description: ARN del bucket (su identificador completo en AWS)
+    Value: !GetAtt Bucket.Arn
 
-  BackendPublicIp:
-    Description: "IP publica del backend"
-    Value: !GetAtt BackendInstance.PublicIp
+  IdInstancia:
+    Description: ID de la instancia EC2
+    Value: !Ref Instancia
 
-  BackendPrivateIp:
-    Description: "IP privada del backend"
-    Value: !GetAtt BackendInstance.PrivateIp
+  IpPublica:
+    Description: IP pública de la instancia
+    Value: !GetAtt Instancia.PublicIp
