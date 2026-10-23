@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Bucket S3 y una instancia EC2 de Globomatics con rsa-ssh-modulo2
+Description: Bucket S3 e instancias EC2 de Frontend y Backend con rsa-ssh-modulo2
 
 Parameters:
   Proyecto:
@@ -31,7 +31,7 @@ Resources:
         - Key: Ambiente
           Value: !Ref Ambiente
 
-  Instancia:
+  FrontendInstance:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref ImagenLinux
@@ -39,7 +39,21 @@ Resources:
       KeyName: "rsa-ssh-modulo2"
       Tags:
         - Key: Name
-          Value: !Sub "vm-${Proyecto}-${Ambiente}"
+          Value: !Sub "vm-${Proyecto}-${Ambiente}-frontend"
+        - Key: Proyecto
+          Value: !Ref Proyecto
+        - Key: Ambiente
+          Value: !Ref Ambiente
+
+  BackendInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImagenLinux
+      InstanceType: !Ref TipoInstancia
+      KeyName: "rsa-ssh-modulo2"
+      Tags:
+        - Key: Name
+          Value: !Sub "vm-${Proyecto}-${Ambiente}-backend"
         - Key: Proyecto
           Value: !Ref Proyecto
         - Key: Ambiente
@@ -54,10 +68,18 @@ Outputs:
     Description: ARN del bucket (su identificador completo en AWS)
     Value: !GetAtt Bucket.Arn
 
-  IdInstancia:
-    Description: ID de la instancia EC2
-    Value: !Ref Instancia
+  IdFrontend:
+    Description: ID de la instancia EC2 Frontend
+    Value: !Ref FrontendInstance
 
-  IpPublica:
-    Description: IP pública de la instancia
-    Value: !GetAtt Instancia.PublicIp
+  IpPublicaFrontend:
+    Description: IP pública de la instancia Frontend
+    Value: !GetAtt FrontendInstance.PublicIp
+
+  IdBackend:
+    Description: ID de la instancia EC2 Backend
+    Value: !Ref BackendInstance
+
+  IpPublicaBackend:
+    Description: IP pública de la instancia Backend
+    Value: !GetAtt BackendInstance.PublicIp
