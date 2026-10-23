@@ -1,7 +1,8 @@
 template-file-path: bucket.yaml
 parameters:
-  Proyecto: "asistenciaweb"
-  Ambiente: "dev"
-  TipoInstancia: "t3.micro"
+  AwsRegion: "us-east-2"
+  VpcCidr: "10.0.0.0/16"
+  PublicSubnetCidr: "10.0.1.0/24"
   MyIpCidr: "166.114.174.35/32"
   KeyName: "rsa-ssh-modulo2"
+  InstanceType: "t3.micro"

@@ -2,19 +2,17 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Infraestructura completa de AsistenciaWeb con Git Sync usando rsa-ssh-modulo2
 
 Parameters:
-  Proyecto:
+  AwsRegion:
     Type: String
-    Default: asistenciaweb
+    Default: "us-east-2"
 
-  Ambiente:
+  VpcCidr:
     Type: String
-    Default: dev
-    AllowedValues: [dev, qa, prod]
+    Default: "10.0.0.0/16"
 
-  TipoInstancia:
+  PublicSubnetCidr:
     Type: String
-    Default: t3.micro
-    AllowedValues: [t3.micro, t3.small]
+    Default: "10.0.1.0/24"
 
   MyIpCidr:
     Type: String
@@ -23,6 +21,11 @@ Parameters:
   KeyName:
     Type: String
     Default: "rsa-ssh-modulo2"
+
+  InstanceType:
+    Type: String
+    Default: "t3.micro"
+    AllowedValues: [t3.micro, t3.small]
 
   ImagenUbuntu:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
@@ -33,19 +36,19 @@ Resources:
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: "10.0.0.0/16"
+      CidrBlock: !Ref VpcCidr
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-vpc"
+          Value: "asistenciaweb-vpc"
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-igw"
+          Value: "asistenciaweb-igw"
 
   VPCGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -57,12 +60,12 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: "10.0.1.0/24"
-      AvailabilityZone: !Sub "${AWS::Region}a"
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Sub "${AwsRegion}a"
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-subnet-publica"
+          Value: "asistenciaweb-subnet-publica"
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -70,7 +73,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-route-table"
+          Value: "asistenciaweb-route-table"
 
   DefaultPublicRoute:
     Type: AWS::EC2::Route
@@ -110,7 +113,7 @@ Resources:
           Description: "HTTPS publico"
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-frontend-sg"
+          Value: "asistenciaweb-frontend-sg"
 
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -135,7 +138,7 @@ Resources:
           Description: "Acceso publico al backend"
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-${Ambiente}-backend-sg"
+          Value: "asistenciaweb-backend-sg"
 
   # 3. INSTANCIAS EC2 (FRONTEND Y BACKEND)
   FrontendInstance:
@@ -143,7 +146,7 @@ Resources:
     DependsOn: DefaultPublicRoute
     Properties:
       ImageId: !Ref ImagenUbuntu
-      InstanceType: !Ref TipoInstancia
+      InstanceType: !Ref InstanceType
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
         - !Ref FrontendSecurityGroup
@@ -156,14 +159,14 @@ Resources:
             VolumeType: gp3
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-frontend"
+          Value: "asistenciaweb-frontend"
 
   BackendInstance:
     Type: AWS::EC2::Instance
     DependsOn: DefaultPublicRoute
     Properties:
       ImageId: !Ref ImagenUbuntu
-      InstanceType: !Ref TipoInstancia
+      InstanceType: !Ref InstanceType
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
         - !Ref BackendSecurityGroup
@@ -176,7 +179,7 @@ Resources:
             VolumeType: gp3
       Tags:
         - Key: Name
-          Value: !Sub "${Proyecto}-backend"
+          Value: "asistenciaweb-backend"
 
 Outputs:
   FrontendPublicIp:
