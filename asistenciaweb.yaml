@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infraestructura de AsistenciaWeb convertida desde Terraform (VPC, Subred, SGs, KeyPair y EC2)
+Description: Infraestructura de AsistenciaWeb adaptada para usar la clave existente rsa-ssh-modulo2
 
 Parameters:
   AwsRegion:
@@ -16,21 +16,12 @@ Parameters:
     Default: "166.114.174.35/32"
   KeyName:
     Type: String
-    Default: "asistenciaweb-key"
+    Default: "rsa-ssh-modulo2"
   InstanceType:
     Type: String
     Default: "t3.micro"
 
 Resources:
-  # 1. PAR DE CLAVES AUTOMÁTICO
-  # Equivalente al recurso tls_private_key y aws_key_pair de Terraform. 
-  # CloudFormation genera la llave y almacena la parte privada de forma segura en el SSM Parameter Store.
-  KeyPair:
-    Type: AWS::EC2::KeyPair
-    Properties:
-      KeyName: !Ref KeyName
-      KeyType: rsa
-
   # 3. RED (VPC, SUBNET, IGW Y ROUTE TABLE)
   VPC:
     Type: AWS::EC2::VPC
@@ -140,12 +131,10 @@ Resources:
           Value: "asistenciaweb-backend-sg"
 
   # 6. INSTANCIAS EC2 (FRONTEND Y BACKEND)
-  # Se utiliza un parámetro SSM nativo de AWS para consultar dinámicamente la última AMI de Ubuntu 24.04 LTS (equivalente al data source de Terraform).
   FrontendInstance:
     Type: AWS::EC2::Instance
     DependsOn: 
       - DefaultPublicRoute
-      - KeyPair
     Properties:
       ImageId: !Sub "{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}"
       InstanceType: !Ref InstanceType
@@ -167,7 +156,6 @@ Resources:
     Type: AWS::EC2::Instance
     DependsOn: 
       - DefaultPublicRoute
-      - KeyPair
     Properties:
       ImageId: !Sub "{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}"
       InstanceType: !Ref InstanceType
