@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infraestructura de AsistenciaWeb adaptada para usar la clave existente rsa-ssh-modulo2
+Description: Infraestructura completa de AsistenciaWeb (VPC, Subred, SGs y EC2) usando rsa-ssh-modulo2
 
 Parameters:
   AwsRegion:
@@ -20,9 +20,12 @@ Parameters:
   InstanceType:
     Type: String
     Default: "t3.micro"
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
 
 Resources:
-  # 3. RED (VPC, SUBNET, IGW Y ROUTE TABLE)
+  # RED (VPC, SUBNET, IGW Y ROUTE TABLE)
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -79,7 +82,7 @@ Resources:
       SubnetId: !Ref PublicSubnet
       RouteTableId: !Ref PublicRouteTable
 
-  # 4. SEGURIDAD (SECURITY GROUPS)
+  # SEGURIDAD (SECURITY GROUPS)
   FrontendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -130,13 +133,13 @@ Resources:
         - Key: Name
           Value: "asistenciaweb-backend-sg"
 
-  # 6. INSTANCIAS EC2 (FRONTEND Y BACKEND)
+  # INSTANCIAS EC2 (FRONTEND Y BACKEND)
   FrontendInstance:
     Type: AWS::EC2::Instance
     DependsOn: 
       - DefaultPublicRoute
     Properties:
-      ImageId: !Sub "{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}"
+      ImageId: !Ref UbuntuAmi
       InstanceType: !Ref InstanceType
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
@@ -157,7 +160,7 @@ Resources:
     DependsOn: 
       - DefaultPublicRoute
     Properties:
-      ImageId: !Sub "{{resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id}}"
+      ImageId: !Ref UbuntuAmi
       InstanceType: !Ref InstanceType
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
