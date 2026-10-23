@@ -1,18 +1,20 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Infraestructura completa de AsistenciaWeb con Git Sync usando rsa-ssh-modulo2
+Description: Infraestructura completa de AsistenciaWeb basada en el ejemplo exitoso
 
 Parameters:
-  AwsRegion:
+  Proyecto:
     Type: String
-    Default: "us-east-2"
+    Default: asistenciaweb
 
-  VpcCidr:
+  Ambiente:
     Type: String
-    Default: "10.0.0.0/16"
+    Default: dev
+    AllowedValues: [dev, qa, prod]
 
-  PublicSubnetCidr:
+  TipoInstancia:
     Type: String
-    Default: "10.0.1.0/24"
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
 
   MyIpCidr:
     Type: String
@@ -22,33 +24,28 @@ Parameters:
     Type: String
     Default: "rsa-ssh-modulo2"
 
-  InstanceType:
-    Type: String
-    Default: "t3.micro"
-    AllowedValues: [t3.micro, t3.small]
-
-  ImagenUbuntu:
+  ImagenLinux:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 
 Resources:
   # 1. RED (VPC, SUBNET, IGW Y ROUTE TABLE)
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: !Ref VpcCidr
+      CidrBlock: "10.0.0.0/16"
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: "asistenciaweb-vpc"
+          Value: !Sub "${Proyecto}-${Ambiente}-vpc"
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: "asistenciaweb-igw"
+          Value: !Sub "${Proyecto}-${Ambiente}-igw"
 
   VPCGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -60,12 +57,12 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: !Ref PublicSubnetCidr
-      AvailabilityZone: !Sub "${AwsRegion}a"
+      CidrBlock: "10.0.1.0/24"
+      AvailabilityZone: !Sub "${AWS::Region}a"
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: "asistenciaweb-subnet-publica"
+          Value: !Sub "${Proyecto}-${Ambiente}-subnet-publica"
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -73,7 +70,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: "asistenciaweb-route-table"
+          Value: !Sub "${Proyecto}-${Ambiente}-route-table"
 
   DefaultPublicRoute:
     Type: AWS::EC2::Route
@@ -113,7 +110,7 @@ Resources:
           Description: "HTTPS publico"
       Tags:
         - Key: Name
-          Value: "asistenciaweb-frontend-sg"
+          Value: !Sub "${Proyecto}-${Ambiente}-frontend-sg"
 
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -138,48 +135,38 @@ Resources:
           Description: "Acceso publico al backend"
       Tags:
         - Key: Name
-          Value: "asistenciaweb-backend-sg"
+          Value: !Sub "${Proyecto}-${Ambiente}-backend-sg"
 
   # 3. INSTANCIAS EC2 (FRONTEND Y BACKEND)
   FrontendInstance:
     Type: AWS::EC2::Instance
     DependsOn: DefaultPublicRoute
     Properties:
-      ImageId: !Ref ImagenUbuntu
-      InstanceType: !Ref InstanceType
+      ImageId: !Ref ImagenLinux
+      InstanceType: !Ref TipoInstancia
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
         - !Ref FrontendSecurityGroup
       AssociatePublicIpAddress: true
       KeyName: !Ref KeyName
-      BlockDeviceMappings:
-        - DeviceName: /dev/sda1
-          Ebs:
-            VolumeSize: 8
-            VolumeType: gp3
       Tags:
         - Key: Name
-          Value: "asistenciaweb-frontend"
+          Value: !Sub "${Proyecto}-frontend"
 
   BackendInstance:
     Type: AWS::EC2::Instance
     DependsOn: DefaultPublicRoute
     Properties:
-      ImageId: !Ref ImagenUbuntu
-      InstanceType: !Ref InstanceType
+      ImageId: !Ref ImagenLinux
+      InstanceType: !Ref TipoInstancia
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: 
         - !Ref BackendSecurityGroup
       AssociatePublicIpAddress: true
       KeyName: !Ref KeyName
-      BlockDeviceMappings:
-        - DeviceName: /dev/sda1
-          Ebs:
-            VolumeSize: 8
-            VolumeType: gp3
       Tags:
         - Key: Name
-          Value: "asistenciaweb-backend"
+          Value: !Sub "${Proyecto}-backend"
 
 Outputs:
   FrontendPublicIp:
